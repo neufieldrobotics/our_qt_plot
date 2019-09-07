@@ -12,15 +12,15 @@ import pandas as pd
 import numpy as np
 import time
 import random
+import yaml
+import argparse
+from functools import partial
+
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-
-from PyQt5.QtWidgets import (QDockWidget, QGroupBox, QPushButton, QVBoxLayout, QSizePolicy)
+from PyQt5.QtWidgets import (QDockWidget, QGroupBox, QPushButton, QVBoxLayout, QSizePolicy, QFileDialog)
 from PyQt5.QtCore import Qt
-import yaml
-import argparse
-
 
 def add_subplot2fig(fig):
     '''
@@ -29,41 +29,25 @@ def add_subplot2fig(fig):
     Returns the new axis that is created
     '''
     n = len(fig.axes)
-    for i in range(n):
-        fig.axes[i].change_geometry(n+1, 1, n+1-i)
-    
-    ax_new = fig.add_subplot(n+1, 1, 1, sharex=fig.axes[0])
-    plt.setp(ax_new.get_xticklabels(), visible=False)
+    if n == 0:
+        ax_new = fig.subplots(1, 1, sharex = True)
+    else:
+        for i in range(n):
+            fig.axes[i].change_geometry(n+1, 1, n+1-i)
+        
+        ax_new = fig.add_subplot(n+1, 1, 1, sharex=fig.axes[0])
+        plt.setp(ax_new.get_xticklabels(), visible=False)
     return ax_new
-
 
         
 def plot_by_string(axes, full_data_dict, namespace, topic, fields):
     '''
     Plot 
     '''
-    full_dict[namespace][topic].plot(ax=axes,y=fields,grid=True,style='.',ms=3,
+    full_data_dict[namespace][topic].plot(ax=axes,y=fields,grid=True,style='.',ms=3,
               label=[f +'_'+namespace for f in fields])
     axes.set_ylabel(topic)
     
-
-# Start with one
-#fig, ax = plt.subplots(1, 1, sharex = True)
-#ax.plot([1,2,3])
-#ax.grid()
-
-#axn = add_subplot2fig(fig)
-#axn.plot([4, 5, 6, 7, 8, 8, 8, 9],label="One")
-#axn.plot([2,3,4,2,4],label="Two")
-#axn.grid()
-#axn.legend()
-#axn = add_subplot2fig(fig)
-#axn.plot([8, 8, 8, 9])
-#axn.grid()
-#axn = add_subplot2fig(fig)
-#axn.plot([3, 4, 2, 5, 3, 4])
-#axn.grid()
-
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self, args):
@@ -71,6 +55,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.args = args
         self._read_config()
         self._create_window()
+        self.full_dict = None
 
     def _create_window(self):
         self.setWindowTitle("Our QT Plot")
@@ -93,13 +78,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.verticalWidgetLayout = QVBoxLayout()
         
         self.selectPlotGroup = QGroupBox("Select Plot")
-        self.selectPlotGroup.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        self.selectPlotGroup.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
 
         selectPlotGroupLayout = QVBoxLayout()
         
-        plotButtonList = [QPushButton(x) for x in self.button_dict.keys()]
+        plotButtonList = []
         
-        [selectPlotGroupLayout.addWidget(b) for b in plotButtonList]
+        for button_dict_key, button_dict_value in self.button_dict.items():
+            buttonwidget = QPushButton(button_dict_key)
+            #buttonwidget.clicked.connect(lambda: self._add_new_plot(button_dict_value))
+            buttonwidget.clicked.connect(partial(self._add_new_plot, button_dict_value))
+            selectPlotGroupLayout.addWidget(buttonwidget)
+            plotButtonList.append(buttonwidget)
+        
 
         selectPlotGroupLayout.addStretch(1)
         self.selectPlotGroup.setLayout(selectPlotGroupLayout)
@@ -113,10 +104,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         removePlotButton = QPushButton("Remove Last Plot")
         removePlotButton.setDefault(False)
         removePlotButton.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+
         removePlotButton.clicked.connect(self._remove_last_subplot)
         self.removePlotWidget.setWidget(removePlotButton)
         self.removePlotWidget.setFloating(False)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.removePlotWidget)
+        
+        self.openDataWidget = QDockWidget("Open Data Widget", self)
+        openDataButton = QPushButton("Load Datafile")
+        openDataButton.setDefault(False)
+        openDataButton.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+
+        openDataButton.clicked.connect(self._load_datafile)
+        self.openDataWidget.setWidget(openDataButton)
+        self.openDataWidget.setFloating(False)
+        self.addDockWidget(Qt.TopDockWidgetArea, self.openDataWidget)
         
     def _read_config(self):
         with open(args.config_file, 'r') as f:
@@ -134,12 +136,25 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         Removes the last plot added to the figure (typically the top plot), removes 
         the axes from the figure and adjust the subplots
         '''   
-        self.main_figure.delaxes(self.main_figure.axes[-1])
-        n = len(self.main_figure.axes)
-        for i in range(n):
-            self.main_figure.axes[i].change_geometry(n, 1, n-i)
+        if len(self.main_figure.axes) > 0:
+            self.main_figure.delaxes(self.main_figure.axes[-1])
+            n = len(self.main_figure.axes)
+            for i in range(n):
+                self.main_figure.axes[i].change_geometry(n, 1, n-i)
+            self.main_figure.canvas.draw()
+    
+    def _add_new_plot(self, plot_dict):
+        axn = add_subplot2fig(self.main_figure)
+        plot_by_string(axn, self.full_dict, 'uas2', plot_dict['topic'], plot_dict['fields'])
         self.main_figure.canvas.draw()
-
+        
+    def _load_datafile(self):
+        
+        fname, _ = QFileDialog.getOpenFileName(self, 'Open file', 
+                                            '~',"Pickle files (*.pkl)")
+        print("Loading datafile - ", fname)
+        self.full_dict = pd.read_pickle(fname)
+        #Todo remove all subplots when loading new file??? 
 
 if __name__ == "__main__":
     
@@ -153,21 +168,6 @@ if __name__ == "__main__":
     qapp = QtWidgets.QApplication(sys.argv)
     app = ApplicationWindow(args)
     
-    
     app.show()
-    
-    full_dict = pd.read_pickle('/home/vik748/apps/bag2mat_ws/sample_data/uas2_2019-05-01-14-32-51.pkl')
 
-    fig = app.main_figure
-    fig.clf()
-    ax = fig.subplots(1, 1, sharex = True)
-    full_dict['uas2']['velocity'].plot(ax=ax,grid=True,style='.',ms=3)
-    
-    axn = add_subplot2fig(fig)
-    full_dict['uas2']['cmd_vel'].plot(ax=axn,y=['velocity_x','velocity_y','velocity_z'],grid=True,style='.',ms=3)
-    axn.set_ylabel("cmd_vel")
-    
-    axn = add_subplot2fig(fig)
-    plot_by_string(axn, full_dict, 'uas2', 'uas_odom', ['position_x','position_y','position_z'])
-    
     qapp.exec_()

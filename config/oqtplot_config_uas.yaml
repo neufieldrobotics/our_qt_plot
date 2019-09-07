@@ -14,8 +14,12 @@ uas_odom:
 
 velocity:
   topic: velocity
-  fields: null
+  fields: 
+  - vector_x
+  - vector_y
+  - vector_z
 
 blash:
   topic: velocity
-  fields: 'vector_x'
+  fields: 
+  - vector_x
