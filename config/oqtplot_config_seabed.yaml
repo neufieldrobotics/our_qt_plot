@@ -1,0 +1,42 @@
+## Format
+# button_name:
+# - topic: topic_name1 from rosbag (name of pandas dataframe)
+#   fields:    #Fields from a ros topic, corresponds to columns in the dataframe.  null indicates plot all fields
+#   - field1
+#   - field2
+heading:
+- topic: heading
+  fields: null
+- topic: target_heading
+  fields: null
+
+pitch:
+- topic: pitch
+  fields: null
+- topic: target_pitch
+  fields: null
+
+depth:
+- topic: depth
+  fields: null
+- topic: target_depth
+  fields: null
+
+roll:
+- topic: roll
+  fields: null
+
+rudder_cmd:
+- topic: rudder_cmd
+  fields: null
+
+elevator_cmd:
+- topic: elevator_cmd
+  fields: null
+
+dvl_odom:
+- topic: dvl_odom
+  fields:
+  - velocity_x
+  - velocity_y
+  - velocity_z

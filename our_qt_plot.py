@@ -19,7 +19,7 @@ from functools import partial
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-from PyQt5.QtWidgets import (QDockWidget, QGroupBox, QPushButton, QVBoxLayout, QSizePolicy, QFileDialog)
+from PyQt5.QtWidgets import (QDockWidget, QGroupBox, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy, QFileDialog)
 from PyQt5.QtCore import Qt
 
 def add_subplot2fig(fig):
@@ -40,17 +40,36 @@ def add_subplot2fig(fig):
     return ax_new
 
         
-def plot_by_string(axes, full_data_dict, namespace, topic, fields):
+def plot_per_dict(axes, full_data_dict, namespace, plot_dict):
     '''
-    Plot 
+    Plot as specifed in the config file. This is where all the magic happens
     '''
-    full_data_dict[namespace][topic].plot(ax=axes,y=fields,grid=True,style='.',ms=3,
-              label=[f +'_'+namespace for f in fields])
+    topic = plot_dict['topic']
+    fields = plot_dict.get('fields')
+    pd_eval_string = plot_dict.get('pre_process_string')
+    df = full_data_dict[namespace][topic]
+    
+    # Create or modify any column as specified in the pre-prepocessing string
+    if pd_eval_string:
+        df.eval(pd_eval_string, inplace=True)
+    
+    # If fields is not specified, plot all available fields    
+    if fields is None:
+        fields = sorted(list(df.columns))
+    
+    if type(fields) is not list:
+        raise TypeError("For Topic: {}, supplied value of fields: '{}' is not of type list ".format(topic, fields))
+        
+    df.plot(ax=axes,y=fields,grid=True,style='.',ms=3,
+            label=[f +'_'+namespace for f in fields])
     axes.set_ylabel(topic)
     
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self, args):
+        ''' 
+        Class Constructor
+        '''
         super(ApplicationWindow,self).__init__()
         self.args = args
         self._read_config()
@@ -58,6 +77,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.full_dict = None
 
     def _create_window(self):
+        '''
+        Create the QT window and all widgets
+        '''
         self.setWindowTitle("Our QT Plot")
         self.left = 200
         self.top = 400
@@ -69,13 +91,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self._main)
         layout = QtWidgets.QHBoxLayout(self._main)
 
-        static_canvas = FigureCanvas(Figure(figsize=(5, 3)))
+        static_canvas = FigureCanvas(Figure())
         self.main_figure = static_canvas.figure
         layout.addWidget(static_canvas)
         self.addToolBar(NavigationToolbar(static_canvas, self))
 
+        # Add plot buttons
         self.verticalWidget = QDockWidget("Vertical Dock Widget", self)
-        self.verticalWidgetLayout = QVBoxLayout()
+        #self.verticalWidgetLayout = QVBoxLayout()
         
         self.selectPlotGroup = QGroupBox("Select Plot")
         self.selectPlotGroup.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
@@ -100,37 +123,87 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.verticalWidget.setFloating(False)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.verticalWidget)
                 
+        # Add removePlot Button
         self.removePlotWidget = QDockWidget("Remove Plot Widget", self)
+        self.removePlotGroup = QGroupBox("Remove Plot")
+        self.removePlotGroup.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        removePlotLayout = QVBoxLayout()
         removePlotButton = QPushButton("Remove Last Plot")
         removePlotButton.setDefault(False)
-        removePlotButton.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-
+        #removePlotButton.setStyleSheet("background-color: red")
+        #removePlotButton.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         removePlotButton.clicked.connect(self._remove_last_subplot)
-        self.removePlotWidget.setWidget(removePlotButton)
+        removePlotLayout.addWidget(removePlotButton)
+        self.removePlotGroup.setLayout(removePlotLayout)
+        self.removePlotWidget.setWidget(self.removePlotGroup)
         self.removePlotWidget.setFloating(False)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.removePlotWidget)
         
+        # Add load data button
         self.openDataWidget = QDockWidget("Open Data Widget", self)
+        self.openDataGroup = QGroupBox("Open Data File")
+        self.openDataGroup.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        openDataGroupLayout = QHBoxLayout()
         openDataButton = QPushButton("Load Datafile")
         openDataButton.setDefault(False)
-        openDataButton.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-
+        #openDataButton.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         openDataButton.clicked.connect(self._load_datafile)
-        self.openDataWidget.setWidget(openDataButton)
+        openDataGroupLayout.addWidget(openDataButton)
+        self.openDataGroup.setLayout(openDataGroupLayout)
+        self.openDataWidget.setWidget(self.openDataGroup)
         self.openDataWidget.setFloating(False)
         self.addDockWidget(Qt.TopDockWidgetArea, self.openDataWidget)
         
+        
+    def _create_namespace_box(self):
+        '''
+        Add the namespace widget to the QT Application window based on the file loaded.        
+        '''
+        self.namespaceWidget = QDockWidget("Namespace Dock Widget", self)        
+        self.namespaceGroup = QGroupBox("Select Namespaces")
+        self.namespaceGroup.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+
+        namespaceGroupLayout = QHBoxLayout()
+        
+        self.namespaceButtonList = []
+        self.namespaceButtonChecked = []
+        
+        for buttonindex, namespace in enumerate(self.namespaceList):
+            buttonwidget = QPushButton(namespace)
+            buttonwidget.setCheckable(True)
+            buttonwidget.clicked.connect(partial(self._handle_namespace_button, buttonindex))
+            namespaceGroupLayout.addWidget(buttonwidget)
+            self.namespaceButtonList.append(buttonwidget)
+            self.namespaceButtonChecked.append(False)
+        
+        if len(self.namespaceList) > 1:
+            self.checkAllbuttonwidget = QPushButton("All")
+            self.checkAllbuttonwidget.setCheckable(True)
+            self.checkAllbuttonwidget.clicked.connect(self._handle_all_namespace_button)
+            namespaceGroupLayout.addWidget(self.checkAllbuttonwidget)
+            #self.namespaceButtonList.append(checkAllbuttonwidget)
+        else:
+            self.namespaceButtonList[0].setChecked(True)
+            self.namespaceButtonChecked[0] = True
+            self.namespaceButtonList[0].setEnabled(False)
+        
+
+        #namespaceGroupLayout.addStretch(1)
+        self.namespaceGroup.setLayout(namespaceGroupLayout)
+        
+        self.namespaceWidget.setWidget(self.namespaceGroup)
+        self.namespaceWidget.setAllowedAreas(Qt.TopDockWidgetArea | Qt.BottomDockWidgetArea)
+        self.namespaceWidget.setFloating(False)
+        self.addDockWidget(Qt.TopDockWidgetArea, self.namespaceWidget)
+        
+        
     def _read_config(self):
+        '''
+        Read the config file which specifies all the topic buttons as supplied by the cmd line argument
+        '''
         with open(args.config_file, 'r') as f:
             self.button_dict = yaml.safe_load(f)
-        
-    def _update_canvas(self):
-        self._dynamic_ax.clear()
-        t = np.linspace(0, 10, 101)
-        # Shift the sinusoid as a function of time.
-        self._dynamic_ax.plot(t, np.sin(t + time.time()))
-        self._dynamic_ax.figure.canvas.draw()
-    
+            
     def _remove_last_subplot(self):
         '''
         Removes the last plot added to the figure (typically the top plot), removes 
@@ -143,18 +216,54 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.main_figure.axes[i].change_geometry(n, 1, n-i)
             self.main_figure.canvas.draw()
     
-    def _add_new_plot(self, plot_dict):
+    def _add_new_plot(self, plot_dict_list):
+        '''
+        When a plot button is pressed process the list of plot_dicts specified in the YAML config file and add 
+        to a new subplot.
+        '''
         axn = add_subplot2fig(self.main_figure)
-        plot_by_string(axn, self.full_dict, 'uas2', plot_dict['topic'], plot_dict['fields'])
+        for buttonChecked, namespace in zip(self.namespaceButtonChecked, self.namespaceList):
+            if buttonChecked:
+                for plot_dict in plot_dict_list:                    
+                    plot_per_dict(axn, self.full_dict, namespace, plot_dict)
         self.main_figure.canvas.draw()
-        
-    def _load_datafile(self):
-        
+        # Todo add a warning to status bar if one of the topics is not available on a particular namespace
+               
+    def _load_datafile(self): 
+        '''
+        Load dadtafile by selecting from file chooser
+        '''
         fname, _ = QFileDialog.getOpenFileName(self, 'Open file', 
                                             '~',"Pickle files (*.pkl)")
-        print("Loading datafile - ", fname)
         self.full_dict = pd.read_pickle(fname)
+        self.namespace_list = self.full_dict.keys()
+        self.setWindowTitle("Our QT Plot - " +fname ) 
+        self.namespaceList = self.full_dict.keys()
+        #self.namespaceList = ['uas1', 'uas2']
+        if hasattr(self, 'namespaceWidget'):
+            self.removeDockWidget(self.namespaceWidget)
+        self._create_namespace_box()
         #Todo remove all subplots when loading new file??? 
+        
+    def _handle_all_namespace_button(self):
+        '''
+        Handle the button toggle when the 'all' namespace button is pressed
+        '''
+        state = self.checkAllbuttonwidget.isChecked()
+        for button_index, button in enumerate(self.namespaceButtonList):
+            button.setChecked(state)
+            self.namespaceButtonChecked[button_index] = state
+            
+    def _handle_namespace_button(self, button_index):
+        '''
+        Handle the selection of namespaces when button is pressed
+        '''
+        self.namespaceButtonChecked[button_index] = self.namespaceButtonList[button_index].isChecked()
+        if hasattr(self, 'checkAllbuttonwidget'):
+            if all(self.namespaceButtonChecked):
+                self.checkAllbuttonwidget.setChecked(True)      
+            else:
+                self.checkAllbuttonwidget.setChecked(False)             
 
 if __name__ == "__main__":
     

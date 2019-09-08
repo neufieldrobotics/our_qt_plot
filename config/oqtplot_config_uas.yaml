@@ -1,25 +1,28 @@
 cmd_vel:
-  topic: cmd_vel
+- topic: cmd_vel
   fields:
   - velocity_x
   - velocity_y
   - velocity_z
 
 uas_odom:
-  topic: uas_odom
+- topic: uas_odom
   fields:
   - position_x
   - position_y
   - position_z
 
 velocity:
-  topic: velocity
+- topic: velocity
   fields: 
   - vector_x
   - vector_y
   - vector_z
 
-blash:
-  topic: velocity
+vec_norm:
+- topic: velocity
+# preprocess dataframe to create a new colmun vec_norm as specified
+  pre_process_string: vec_norm = (vector_x**2 + vector_y**2 + vector_z**2)**0.5
   fields: 
-  - vector_x
+  - vec_norm #plot the newly created columns
+
