@@ -19,8 +19,8 @@ from functools import partial
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-from PyQt5.QtWidgets import (QDockWidget, QGroupBox, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy, QFileDialog)
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QMainWindow, QDockWidget, QGroupBox, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy, QFileDialog)
+from PyQt5.QtCore import (Qt, QSettings)
 
 def add_subplot2fig(fig):
     '''
@@ -72,20 +72,31 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         '''
         super(ApplicationWindow,self).__init__()
         self.args = args
+        self.settings = QSettings("NEUFR", "our_qt_plot")
         self._read_config()
         self._create_window()
         self.full_dict = None
+        
+    
+    def closeEvent(self, event):
+        self.settings.setValue("geometry", self.saveGeometry())
+        #self.settings.setValue("windowState", self.saveState())
+        QMainWindow.closeEvent(self, event)
 
     def _create_window(self):
         '''
         Create the QT window and all widgets
         '''
         self.setWindowTitle("Our QT Plot")
-        self.left = 200
-        self.top = 400
-        self.width = 1240
-        self.height = 960
-        self.setGeometry(self.left, self.top, self.width, self.height)
+        
+        if self.settings.value("geometry") == None: # First launch on this computer
+            self.left = 200
+            self.top = 400
+            self.width = 1240
+            self.height = 960
+            self.setGeometry(self.left, self.top, self.width, self.height)
+        else:   # restored saved windows position
+            self.restoreGeometry(self.settings.value("geometry"))
 
         self._main = QtWidgets.QWidget()
         self.setCentralWidget(self._main)
@@ -97,10 +108,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.addToolBar(NavigationToolbar(static_canvas, self))
 
         # Add plot buttons
-        self.verticalWidget = QDockWidget("Vertical Dock Widget", self)
+        self.verticalWidget = QDockWidget("Select Plot", self)
         #self.verticalWidgetLayout = QVBoxLayout()
         
-        self.selectPlotGroup = QGroupBox("Select Plot")
+        self.selectPlotGroup = QGroupBox()
         self.selectPlotGroup.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
 
         selectPlotGroupLayout = QVBoxLayout()
@@ -124,8 +135,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.verticalWidget)
                 
         # Add removePlot Button
-        self.removePlotWidget = QDockWidget("Remove Plot Widget", self)
-        self.removePlotGroup = QGroupBox("Remove Plot")
+        self.removePlotWidget = QDockWidget("Remove Plot", self)
+        self.removePlotGroup = QGroupBox()
         self.removePlotGroup.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         removePlotLayout = QVBoxLayout()
         removePlotButton = QPushButton("Remove Last Plot")
@@ -140,8 +151,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.removePlotWidget)
         
         # Add load data button
-        self.openDataWidget = QDockWidget("Open Data Widget", self)
-        self.openDataGroup = QGroupBox("Open Data File")
+        self.openDataWidget = QDockWidget("Open Data File", self)
+        self.openDataGroup = QGroupBox()
         self.openDataGroup.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         openDataGroupLayout = QHBoxLayout()
         openDataButton = QPushButton("Load Datafile")
