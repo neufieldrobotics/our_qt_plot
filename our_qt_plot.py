@@ -15,12 +15,16 @@ import random
 import yaml
 import argparse
 from functools import partial
+import psutil
+import os
 
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-from PyQt5.QtWidgets import (QMainWindow, QDockWidget, QGroupBox, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy, QFileDialog)
-from PyQt5.QtCore import (Qt, QSettings)
+from PyQt5.QtWidgets import (QMainWindow, QDockWidget, QGroupBox, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy, QFileDialog, QLabel)
+from PyQt5.QtCore import (Qt, QSettings, QTimer)
+
+
 
 def add_subplot2fig(fig):
     '''
@@ -75,12 +79,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.settings = QSettings("NEUFR", "our_qt_plot")
         self._read_config()
         self._create_window()
+        self._create_memory_timer()
         self.full_dict = None
         
-    
+            
     def closeEvent(self, event):
         self.settings.setValue("geometry", self.saveGeometry())
-        #self.settings.setValue("windowState", self.saveState())
         QMainWindow.closeEvent(self, event)
 
     def _create_window(self):
@@ -165,6 +169,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.openDataWidget.setFloating(False)
         self.addDockWidget(Qt.TopDockWidgetArea, self.openDataWidget)
         
+        self.memory_status_qlabel = QLabel("Memory: {:.1f}%".format(0))
+        self.statusBar().addPermanentWidget(self.memory_status_qlabel)
+        #self.memory_status_qlabel.setText("File Loaded")
+        
         
     def _create_namespace_box(self):
         '''
@@ -206,7 +214,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.namespaceWidget.setAllowedAreas(Qt.TopDockWidgetArea | Qt.BottomDockWidgetArea)
         self.namespaceWidget.setFloating(False)
         self.addDockWidget(Qt.TopDockWidgetArea, self.namespaceWidget)
+    
+    def _update_memory_box(self):
+        self.memory_status_qlabel.setText("Memory: {:.1f}%".format(psutil.virtual_memory().percent))
         
+    def _create_memory_timer(self):
+        '''
+        Create timer to update memory status box
+        '''
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._update_memory_box)
+        self.timer.start(5000)       
         
     def _read_config(self):
         '''
@@ -245,16 +263,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         Load dadtafile by selecting from file chooser
         '''
         fname, _ = QFileDialog.getOpenFileName(self, 'Open file', 
-                                            '~',"Pickle files (*.pkl)")
-        self.full_dict = pd.read_pickle(fname)
-        self.namespace_list = self.full_dict.keys()
-        self.setWindowTitle("Our QT Plot - " +fname ) 
-        self.namespaceList = self.full_dict.keys()
-        #self.namespaceList = ['uas1', 'uas2']
-        if hasattr(self, 'namespaceWidget'):
-            self.removeDockWidget(self.namespaceWidget)
-        self._create_namespace_box()
-        #Todo remove all subplots when loading new file??? 
+                                               self.settings.value("data_file_location"),
+                                               "Pickle files (*.pkl)")
+        if fname:
+            self.full_dict = pd.read_pickle(fname)
+            self.namespace_list = self.full_dict.keys()
+            self.setWindowTitle("Our QT Plot - " +fname ) 
+            self.namespaceList = self.full_dict.keys()
+            #self.namespaceList = ['uas1', 'uas2']
+            if hasattr(self, 'namespaceWidget'):
+                self.removeDockWidget(self.namespaceWidget)
+            self._create_namespace_box()
+            self.statusBar().showMessage('File {} loaded successfully'.format(fname))
+            self.settings.setValue("data_file_location", os.path.dirname(fname))
+            #Todo remove all subplots when loading new file??? 
         
     def _handle_all_namespace_button(self):
         '''
