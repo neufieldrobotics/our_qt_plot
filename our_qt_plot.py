@@ -41,6 +41,8 @@ def add_subplot2fig(fig):
         
         ax_new = fig.add_subplot(n+1, 1, 1, sharex=fig.axes[0])
         plt.setp(ax_new.get_xticklabels(), visible=False)
+        fig.tight_layout() 
+        fig.subplots_adjust(hspace=0) # Makes vertical gap between plots 0 
     return ax_new
 
         
@@ -51,27 +53,32 @@ def plot_per_dict(axes, full_data_dict, namespace, plot_dict):
     topic = plot_dict['topic']
     fields = plot_dict.get('fields')
     pd_eval_strings = plot_dict.get('pre_process_string')
-    df = full_data_dict[namespace][topic]
+    df = full_data_dict[namespace].get(topic)
     
-    # Create or modify any column as specified in the pre-prepocessing string
-    if pd_eval_strings:
-        if np.isscalar(pd_eval_strings):
-            pd_eval_strings = [pd_eval_strings]
-        for exp in pd_eval_strings:
-            df.eval(exp, inplace=True, engine="python", global_dict={'pi':np.pi,
-                                                                     'wrapToPi':lambda a: (a + np.pi) % (2 * np.pi) - np.pi,
-                                                                     'wrapTo2Pi':lambda a: a % (2 * np.pi) })
-    
-    # If fields is not specified, plot all available fields    
-    if fields is None:
-        fields = sorted(list(df.columns))
-    
-    if type(fields) is not list:
-        raise TypeError("For Topic: {}, supplied value of fields: '{}' is not of type list ".format(topic, fields))
+    if df is not None:
+        # Create or modify any column as specified in the pre-prepocessing string
+        if pd_eval_strings:
+            if np.isscalar(pd_eval_strings):
+                pd_eval_strings = [pd_eval_strings]
+            for exp in pd_eval_strings:
+                df.eval(exp, inplace=True, engine="python", global_dict={'pi':np.pi,
+                                                                         'wrapToPi':lambda a: (a + np.pi) % (2 * np.pi) - np.pi,
+                                                                         'wrapTo2Pi':lambda a: a % (2 * np.pi) })
         
-    df.plot(ax=axes,y=fields,grid=True,style='.',ms=3,
-            label=[f +'_'+namespace for f in fields])
-    axes.set_ylabel(topic)
+        # If fields is not specified, plot all available fields    
+        if fields is None:
+            fields = sorted(list(df.columns))
+        
+        if type(fields) is not list:
+            raise TypeError("For Topic: {}, supplied value of fields: '{}' is not of type list ".format(topic, fields))
+            
+        df.plot(ax=axes,y=fields,grid=True,style='.',ms=3,
+                label=[f +'_'+namespace for f in fields])
+        axes.set_ylabel(topic)
+        return True
+    
+    else:
+        return False        
     
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -261,7 +268,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             for buttonChecked, namespace in zip(self.namespaceButtonChecked, self.namespaceList):
                 if buttonChecked:
                     for plot_dict in plot_dict_list:                    
-                        plot_per_dict(axn, self.full_dict, namespace, plot_dict)
+                        success = plot_per_dict(axn, self.full_dict, namespace, plot_dict)
+                        if not success:
+                            self.statusBar().showMessage('Couldn\'t find topic {} in namespace {}'.format(plot_dict['topic'],namespace),3000)
+                            self._remove_last_subplot()
             self.main_figure.canvas.draw()
         else:
             self.statusBar().showMessage('Come on dude you gotta load a datafile first !!!',3000)
