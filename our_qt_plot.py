@@ -17,6 +17,7 @@ import argparse
 from functools import partial
 import psutil
 import os
+import time
 
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
@@ -61,9 +62,9 @@ def plot_per_dict(axes, full_data_dict, namespace, plot_dict):
             if np.isscalar(pd_eval_strings):
                 pd_eval_strings = [pd_eval_strings]
             for exp in pd_eval_strings:
-                df.eval(exp, inplace=True, engine="python", global_dict={'pi':np.pi,
-                                                                         'wrapToPi':lambda a: (a + np.pi) % (2 * np.pi) - np.pi,
-                                                                         'wrapTo2Pi':lambda a: a % (2 * np.pi) })
+                df.eval(exp, inplace=True, global_dict={'pi':np.pi,
+                                                        'wrapToPi':lambda a: (a + np.pi) % (2 * np.pi) - np.pi,
+                                                        'wrapTo2Pi':lambda a: a % (2 * np.pi) })
         
         # If fields is not specified, plot all available fields    
         if fields is None:
@@ -264,6 +265,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         to a new subplot.
         '''
         if self.data_file_loaded:
+            start_time = time.time()
             axn = add_subplot2fig(self.main_figure)
             for buttonChecked, namespace in zip(self.namespaceButtonChecked, self.namespaceList):
                 if buttonChecked:
@@ -273,6 +275,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                             self.statusBar().showMessage('Couldn\'t find topic {} in namespace {}'.format(plot_dict['topic'],namespace),3000)
                             self._remove_last_subplot()
             self.main_figure.canvas.draw()
+            self.statusBar().showMessage('Plot loaded in {:.2f} seconds'.format(time.time()-start_time),3000)            
         else:
             self.statusBar().showMessage('Come on dude you gotta load a datafile first !!!',3000)
         # Todo add a warning to status bar if one of the topics is not available on a particular namespace
