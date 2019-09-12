@@ -26,3 +26,24 @@ vec_norm:
   fields: 
   - vec_norm #plot the newly created columns
 
+imu_roll:
+- topic: imu_data
+# atan2(2(wx + yz), 1 - 2(x^2 + y^2))
+  pre_process_string: 
+  - 'roll = 180/@pi * arctan2(2*(orientation_quat_y * orientation_quat_z + orientation_quat_x * orientation_quat_w), 1 - 2*(orientation_quat_x**2 + orientation_quat_y**2))'
+  fields: 
+  - roll
+
+imu_pitch:
+- topic: imu_data
+# asin(2(wy - zx))
+  pre_process_string: 'pitch = 180 / @pi * arcsin(2*(orientation_quat_w * orientation_quat_y - orientation_quat_z * orientation_quat_x))'
+  fields: 
+  - pitch
+
+imu_yaw:
+- topic: imu_data
+# atan2(2(wz + xy), 1 - 2(y^2 + z^2))
+  pre_process_string: 'yaw = 180 / @pi * arctan2(2*(orientation_quat_w * orientation_quat_z + orientation_quat_x * orientation_quat_y), 1 - 2*(orientation_quat_y**2 + orientation_quat_z**2))'
+  fields: 
+  - yaw
