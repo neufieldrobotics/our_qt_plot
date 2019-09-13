@@ -22,8 +22,9 @@ import time
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-from PyQt5.QtWidgets import (QMainWindow, QDockWidget, QGroupBox, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy, QFileDialog, QLabel)
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QStyle, QWidget, QDockWidget, QTabWidget, QGroupBox, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy, QFileDialog, QLabel, QToolButton)
 from PyQt5.QtCore import (Qt, QSettings, QTimer)
+from PyQt5.QtGui import QIcon
 
 
 
@@ -42,8 +43,8 @@ def add_subplot2fig(fig):
         
         ax_new = fig.add_subplot(n+1, 1, 1, sharex=fig.axes[0])
         plt.setp(ax_new.get_xticklabels(), visible=False)
-        fig.tight_layout() 
-        fig.subplots_adjust(hspace=0) # Makes vertical gap between plots 0 
+        #fig.tight_layout() 
+        #fig.subplots_adjust(hspace=0) # Makes vertical gap between plots 0 
     return ax_new
 
         
@@ -76,6 +77,42 @@ def plot_per_dict(axes, full_data_dict, namespace, plot_dict):
         df.plot(ax=axes,y=fields,grid=True,style='.',ms=3,
                 label=[f +'_'+namespace for f in fields])
         axes.set_ylabel(topic)
+        return True
+    
+    else:
+        return False        
+
+def plot_xy_per_dict(axes, full_data_dict, namespace, plot_dict):
+    '''
+    Plot as specifed in the config file. This is where all the magic happens
+    '''
+    topic = plot_dict['topic']
+    all_fields = plot_dict.get('fields')        
+    pd_eval_strings = plot_dict.get('pre_process_string')
+    df = full_data_dict[namespace].get(topic)
+    
+    if df is not None:
+        # Create or modify any column as specified in the pre-prepocessing string
+        if pd_eval_strings:
+            if np.isscalar(pd_eval_strings):
+                pd_eval_strings = [pd_eval_strings]
+            for exp in pd_eval_strings:
+                df.eval(exp, inplace=True, global_dict={'pi':np.pi,
+                                                        'wrapToPi':lambda a: (a + np.pi) % (2 * np.pi) - np.pi,
+                                                        'wrapTo2Pi':lambda a: a % (2 * np.pi) })
+              
+        for field_pair in all_fields:
+            if type(field_pair) is not list:
+                raise TypeError("For Topic: {}, supplied value of fields: '{}' is not of type list ".format(topic, fields))
+
+            if len(field_pair) != 2:
+                return False
+
+            
+            df.plot(ax=axes,x=field_pair[0], y=field_pair[1], grid=True,style='.',ms=3)
+            axes.axis('equal')
+
+        #axes.set_ylabel(topic)
         return True
     
     else:
@@ -115,59 +152,130 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.setGeometry(self.left, self.top, self.width, self.height)
         else:   # restored saved windows position
             self.restoreGeometry(self.settings.value("geometry"))
+        
+        nav_toolbar_home = NavigationToolbar.home
+        
+        def new_home(self, *args, **kwargs):
+            print 'new home'
+            nav_toolbar_home(self, *args, **kwargs)
 
-        self._main = QtWidgets.QWidget()
-        self.setCentralWidget(self._main)
-        layout = QtWidgets.QHBoxLayout(self._main)
+        NavigationToolbar.home = new_home
 
-        static_canvas = FigureCanvas(Figure())
-        self.main_figure = static_canvas.figure
-        layout.addWidget(static_canvas)
-        self.addToolBar(NavigationToolbar(static_canvas, self))
+        
+        self.tab_widget = QTabWidget()
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
+        #self.tabs.resize(300,200)
+        
+        # Add tabs
+        self.tab_widget.addTab(self.tab1,"Timeseries Plot")
+        self.tab_widget.addTab(self.tab2,"XY Plot")
+        
+        # Create first timeseries tab
+        self.tab1.layout = QHBoxLayout()
+        timeseries_canvas = FigureCanvas(Figure())
+        self.main_figure = timeseries_canvas.figure
+        self.tab1.layout.addWidget(timeseries_canvas)
+        timeseries_nav_tb = NavigationToolbar(timeseries_canvas, self)
+        timeseries_nav_tb.setOrientation(Qt.Vertical)
+        
+        # Relove last plot button
+        timeseries_removePlotButton = QToolButton()
+        timeseries_removePlotButton.setIcon(QApplication.style().standardIcon(QStyle.SP_DialogOkButton))
+        timeseries_removePlotButton.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
+        timeseries_removePlotButton.setToolTip('Remove Last Plot')
+        timeseries_nav_tb.addSeparator()
+        timeseries_nav_tb.addWidget(timeseries_removePlotButton)
+        timeseries_removePlotButton.clicked.connect(self._remove_last_subplot)
+        
+        # Clear plot button
+        timeseries_clear_button = QToolButton()
+        timeseries_clear_button.setIcon(QApplication.style().standardIcon(QStyle.SP_BrowserStop))
+        timeseries_clear_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
+        timeseries_clear_button.setToolTip('Clear All Plots')
+        timeseries_nav_tb.addWidget(timeseries_clear_button)
+        timeseries_clear_button.clicked.connect(self._remove_all_timeseries_subplots)
+        
+        timeseries_nav_tb.setFixedWidth(36)
+        self.tab1.layout.addWidget(timeseries_nav_tb)
+        self.tab1.setLayout(self.tab1.layout)
 
-        # Add plot buttons
-        self.verticalWidget = QDockWidget("Select Plot", self)
-        #self.verticalWidgetLayout = QVBoxLayout()
+        # Create XY figure tab
+        self.tab2.layout = QHBoxLayout()
+        xy_canvas = FigureCanvas(Figure())
+        self.xy_figure = xy_canvas.figure
+        self.xy_axes = self.xy_figure.subplots(1, 1)
+        self.tab2.layout.addWidget(xy_canvas)
         
-        self.selectPlotGroup = QGroupBox()
-        self.selectPlotGroup.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
+        xy_nav_tb = NavigationToolbar(xy_canvas, self)
+        xy_nav_tb.setOrientation(Qt.Vertical)
+        xy_clear_button = QToolButton()
+        xy_clear_button.setIcon(QApplication.style().standardIcon(QStyle.SP_BrowserStop))
+        xy_clear_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
+        xy_clear_button.setToolTip('Clear All Plots') 
+        xy_nav_tb.addSeparator()
+        xy_nav_tb.addWidget(xy_clear_button)
+        xy_clear_button.clicked.connect(self._clear_xy_axes)
+        xy_nav_tb.setFixedWidth(36)
+        #xy_nav_tb.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        self.tab2.layout.addWidget(xy_nav_tb)
+        self.tab2.setLayout(self.tab2.layout)
+        
+        self.setCentralWidget(self.tab_widget)
+        
+        #self.addToolBar(NavigationToolbar(timeseries_canvas, self))
 
-        selectPlotGroupLayout = QVBoxLayout()
+        # Add time series plot buttons
+        self.tsp_widget = QDockWidget("Select Timeseries Plot", self)
+        self.tsp_button_Group = QGroupBox()
+        self.tsp_button_Group.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
+
+        tsp_button_GroupLayout = QVBoxLayout()
         
-        plotButtonList = []
+        tsplotButtonList = []
         
-        for button_dict_key, button_dict_value in self.button_dict.items():
-            buttonwidget = QPushButton(button_dict_key)
-            #buttonwidget.clicked.connect(lambda: self._add_new_plot(button_dict_value))
-            buttonwidget.clicked.connect(partial(self._add_new_plot, button_dict_value))
-            selectPlotGroupLayout.addWidget(buttonwidget)
-            plotButtonList.append(buttonwidget)
+        for time_series_buttons_dict_key, time_series_buttons_dict_value in self.time_series_buttons_dict.items():
+            buttonwidget = QPushButton(time_series_buttons_dict_key)
+            #buttonwidget.clicked.connect(lambda: self._add_new_plot(time_series_buttons_dict_value))
+            buttonwidget.clicked.connect(partial(self._add_new_plot, time_series_buttons_dict_value))
+            tsp_button_GroupLayout.addWidget(buttonwidget)
+            tsplotButtonList.append(buttonwidget)
         
 
-        selectPlotGroupLayout.addStretch(1)
-        self.selectPlotGroup.setLayout(selectPlotGroupLayout)
+        tsp_button_GroupLayout.addStretch(1)
+        self.tsp_button_Group.setLayout(tsp_button_GroupLayout)
         
-        self.verticalWidget.setWidget(self.selectPlotGroup)
-        self.verticalWidget.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.verticalWidget.setFloating(False)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.verticalWidget)
-                
-        # Add removePlot Button
-        self.removePlotWidget = QDockWidget("Remove Plot", self)
-        self.removePlotGroup = QGroupBox()
-        self.removePlotGroup.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
-        removePlotLayout = QVBoxLayout()
-        removePlotButton = QPushButton("Remove Last Plot")
-        removePlotButton.setDefault(False)
-        #removePlotButton.setStyleSheet("background-color: red")
-        #removePlotButton.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-        removePlotButton.clicked.connect(self._remove_last_subplot)
-        removePlotLayout.addWidget(removePlotButton)
-        self.removePlotGroup.setLayout(removePlotLayout)
-        self.removePlotWidget.setWidget(self.removePlotGroup)
-        self.removePlotWidget.setFloating(False)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.removePlotWidget)
+        self.tsp_widget.setWidget(self.tsp_button_Group)
+        self.tsp_widget.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.tsp_widget.setFloating(False)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.tsp_widget)
         
+        # Add xy plot buttons
+        self.xyp_widget = QDockWidget("Select XY Plot", self)
+        self.xyp_button_Group = QGroupBox()
+        self.xyp_button_Group.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
+
+        xyp_button_GroupLayout = QVBoxLayout()
+        
+        xyplotButtonList = []
+        
+        for xy_buttons_dict_key, xy_buttons_dict_value in self.xy_buttons_dict.items():
+            buttonwidget = QPushButton(xy_buttons_dict_key)
+            #buttonwidget.clicked.connect(lambda: self._add_new_plot(xy_buttons_dict_value))
+            buttonwidget.clicked.connect(partial(self._add_new_xy_plot, xy_buttons_dict_value))
+            xyp_button_GroupLayout.addWidget(buttonwidget)
+            xyplotButtonList.append(buttonwidget)
+        
+        #xyp_button_GroupLayout.addWidget(xy_clear_button)
+        
+        xyp_button_GroupLayout.addStretch(1)
+        self.xyp_button_Group.setLayout(xyp_button_GroupLayout)
+        
+        self.xyp_widget.setWidget(self.xyp_button_Group)
+        self.xyp_widget.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.xyp_widget.setFloating(False)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.xyp_widget)
+
         # Add load data button
         self.openDataWidget = QDockWidget("Open Data File", self)
         self.openDataGroup = QGroupBox()
@@ -246,6 +354,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         '''
         with open(args.config_file, 'r') as f:
             self.button_dict = yaml.safe_load(f)
+            self.time_series_buttons_dict = self.button_dict['time_series_buttons']
+            self.xy_buttons_dict = self.button_dict['xy_plot_buttons']
             
     def _remove_last_subplot(self):
         '''
@@ -258,7 +368,38 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             for i in range(n):
                 self.main_figure.axes[i].change_geometry(n, 1, n-i)
             self.main_figure.canvas.draw()
-    
+            
+    def _remove_all_timeseries_subplots(self):
+        '''
+        Removes the all timeseries subplots from figure
+        '''   
+        while len(self.main_figure.axes) > 0:
+            self.main_figure.delaxes(self.main_figure.axes[-1])        
+        self.main_figure.canvas.draw()
+
+    def _clear_xy_axes(self):
+        self.xy_axes.clear()
+        self.xy_figure.canvas.draw()        
+            
+    def _add_new_xy_plot(self, plot_dict_list):
+        '''
+        When a plot button is pressed process the list of plot_dicts specified in the YAML config file and add 
+        to a new subplot.
+        '''
+        if self.data_file_loaded:
+            start_time = time.time()
+            for buttonChecked, namespace in zip(self.namespaceButtonChecked, self.namespaceList):
+                if buttonChecked:
+                    for plot_dict in plot_dict_list:                    
+                        success = plot_xy_per_dict(self.xy_axes, self.full_dict, namespace, plot_dict)
+                        if not success:
+                            self.statusBar().showMessage('Couldn\'t find topic {} in namespace {}'.format(plot_dict['topic'],namespace),3000)
+            self.xy_figure.canvas.draw()
+            #self.statusBar().showMessage('Plot loaded in {:.2f} seconds'.format(time.time()-start_time),500)            
+        else:
+            self.statusBar().showMessage('Come on dude you gotta load a datafile first !!!',3000)
+        # Todo add a warning to status bar if one of the topics is not available on a particular namespace
+               
     def _add_new_plot(self, plot_dict_list):
         '''
         When a plot button is pressed process the list of plot_dicts specified in the YAML config file and add 
@@ -275,7 +416,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                             self.statusBar().showMessage('Couldn\'t find topic {} in namespace {}'.format(plot_dict['topic'],namespace),3000)
                             self._remove_last_subplot()
             self.main_figure.canvas.draw()
-            self.statusBar().showMessage('Plot loaded in {:.2f} seconds'.format(time.time()-start_time),3000)            
+            #self.statusBar().showMessage('Plot loaded in {:.2f} seconds'.format(time.time()-start_time),500)            
         else:
             self.statusBar().showMessage('Come on dude you gotta load a datafile first !!!',3000)
         # Todo add a warning to status bar if one of the topics is not available on a particular namespace

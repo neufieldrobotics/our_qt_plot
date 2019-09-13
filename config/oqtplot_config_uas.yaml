@@ -1,58 +1,76 @@
-cmd_vel_linear:
-- topic: cmd_vel
-  fields:
-  - velocity_x
-  - velocity_y
-  - velocity_z
+time_series_buttons:
+  cmd_vel_linear:
+  - topic: cmd_vel
+    fields:
+    - velocity_x
+    - velocity_y
+    - velocity_z
 
-cmd_vel_yaw:
-- topic: cmd_vel
-  fields:
-  - angular_velocity_z
+  cmd_vel_yaw:
+  - topic: cmd_vel
+    fields:
+    - angular_velocity_z
 
-uas_odom:
-- topic: uas_odom
-  fields:
-  - position_x
-  - position_y
+  uas_odom:
+  - topic: uas_odom
+    pre_process_string: 
+    - x_adj = position_x - position_x.mean()
+    - y_adj = position_y - position_y.mean()
+    fields:
+    - x_adj
+    - y_adj
 
-height:
-- topic: uas_odom
-  fields:
-  - position_z
+  height:
+  - topic: uas_odom
+    fields:
+    - position_z
 
-velocity:
-- topic: velocity
-  fields: 
-  - vector_x
-  - vector_y
-  - vector_z
+  velocity:
+  - topic: velocity
+    fields: 
+    - vector_x
+    - vector_y
+    - vector_z
 
-vec_norm:
-- topic: velocity
-# preprocess dataframe to create a new colmun vec_norm as specified
-  pre_process_string: vec_norm = (vector_x**2 + vector_y**2 + vector_z**2)**0.5
-  fields: 
-  - vec_norm #plot the newly created columns
+  vec_norm:
+  - topic: velocity
+  # preprocess dataframe to create a new colmun vec_norm as specified
+    pre_process_string: vec_norm = (vector_x**2 + vector_y**2 + vector_z**2)**0.5
+    fields: 
+    - vec_norm #plot the newly created columns
 
-imu_roll:
-- topic: imu_data
-# atan2(2(wx + yz), 1 - 2(x^2 + y^2))
-  pre_process_string: 
-  - 'roll = 180/@pi * arctan2(2*(orientation_quat_y * orientation_quat_z + orientation_quat_x * orientation_quat_w), 1 - 2*(orientation_quat_x**2 + orientation_quat_y**2))'
-  fields: 
-  - roll
+  imu_roll:
+  - topic: imu_data
+  # atan2(2(wx + yz), 1 - 2(x^2 + y^2))
+    pre_process_string: 
+    - 'roll = 180/@pi * arctan2(2*(orientation_quat_y * orientation_quat_z + orientation_quat_x * orientation_quat_w), 1 - 2*(orientation_quat_x**2 + orientation_quat_y**2))'
+    fields: 
+    - roll
 
-imu_pitch:
-- topic: imu_data
-# asin(2(wy - zx))
-  pre_process_string: 'pitch = 180 / @pi * arcsin(2*(orientation_quat_w * orientation_quat_y - orientation_quat_z * orientation_quat_x))'
-  fields: 
-  - pitch
+  imu_pitch:
+  - topic: imu_data
+  # asin(2(wy - zx))
+    pre_process_string: 'pitch = 180 / @pi * arcsin(2*(orientation_quat_w * orientation_quat_y - orientation_quat_z * orientation_quat_x))'
+    fields: 
+    - pitch
 
-imu_yaw:
-- topic: imu_data
-# atan2(2(wz + xy), 1 - 2(y^2 + z^2))
-  pre_process_string: 'yaw = 180 / @pi * arctan2(2*(orientation_quat_w * orientation_quat_z + orientation_quat_x * orientation_quat_y), 1 - 2*(orientation_quat_y**2 + orientation_quat_z**2))'
-  fields: 
-  - yaw
+  imu_yaw:
+  - topic: imu_data
+  # atan2(2(wz + xy), 1 - 2(y^2 + z^2))
+    pre_process_string: 'yaw = 180 / @pi * arctan2(2*(orientation_quat_w * orientation_quat_z + orientation_quat_x * orientation_quat_y), 1 - 2*(orientation_quat_y**2 + orientation_quat_z**2))'
+    fields: 
+    - yaw
+
+xy_plot_buttons:
+  utm_raw:
+  - topic: uas_odom
+    fields:
+    - [position_x, position_y]
+
+  utm_adj:
+  - topic: uas_odom
+    pre_process_string: 
+    - x_adj = position_x - position_x.mean()
+    - y_adj = position_y - position_y.mean()
+    fields:
+    - [x_adj, y_adj]
