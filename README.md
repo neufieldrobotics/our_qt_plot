@@ -2,10 +2,10 @@
 A plotting tool with GUI for rosbags converted into pandas dataframes
 
 ## Input data structure
-![Alt text](https://g.gravizo.com/source/svg/input_data_structure_dot?https%3A%2F%2Fraw.githubusercontent.com%2Fneufieldrobotics%2Four_qt_plot%2Fmaster%2FREADME.md)
+![Alt text](https://g.gravizo.com/source/svg/input_data_structure?https%3A%2F%2Fraw.githubusercontent.com%2Fneufieldrobotics%2Four_qt_plot%2Fmaster%2FREADME.md)
 <details> 
 <summary></summary>
-input_data_structure_dot
+input_data_structure
 digraph G {
 
 "data_file.pkl" -> "full_data_dict";
@@ -56,5 +56,5 @@ n2t2 -> n2t2f1 [color="blue"];
 n2t2 -> n2t2f2 [color="blue"];
 
 }
-input_data_structure_dot
+input_data_structure
 </details>
