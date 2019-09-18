@@ -6,20 +6,55 @@ A plotting tool with GUI for rosbags converted into pandas dataframes
 <details> 
 <summary></summary>
 input_data_structure_dot
- digraph G {
-    size ="4,4";
-    main [shape=box];
-    main -> parse [weight=8];
-    parse -> execute;
-    main -> init [style=dotted];
-    main -> cleanup;
-    execute -> { make_string; printf};
-    init -> make_string;
-    edge [color=red];
-    main -> printf [style=bold,label="100 times"];
-    make_string [label="make a string"];
-    node [shape=box,style=filled,color=".7 .3 1.0"];
-    execute -> compare;
-  }
+digraph G {
+
+"data_file.pkl" -> "full_data_dict";
+"full_data_dict" -> "namespace1 dict" [color="orange"];
+"full_data_dict" -> "namespace2 dict" [color="orange"];
+
+n1t1 [label="topic1 pandas df"];
+n1t2 [label="topic2 pandas df"];
+n2t1 [label="topic1 pandas df"];
+n2t2 [label="topic2 pandas df"];
+
+"namespace1 dict" -> n1t1 [color="green"];
+"namespace1 dict" -> n1t2 [color="green"];
+
+"namespace2 dict" -> n2t1 [color="green"];
+"namespace2 dict" -> n2t2 [color="green"];
+
+n1t1t [label="Time\n(index)"];
+n1t1f1 [label="Field1\ncolumn"];
+n1t1f2 [label="Field2\ncolumn"];
+
+n1t2t [label="Time\n(index)"];
+n1t2f1 [label="Field1\ncolumn"];
+n1t2f2 [label="Field2\ncolumn"];
+
+n2t1t [label="Time\n(index)"];
+n2t1f1 [label="Field1\ncolumn"];
+n2t1f2 [label="Field2\ncolumn"];
+
+n2t2t [label="Time\n(index)"];
+n2t2f1 [label="Field1\ncolumn"];
+n2t2f2 [label="Field2\ncolumn"];
+
+n1t1 -> n1t1t [color="blue"];
+n1t1 -> n1t1f1 [color="blue"];
+n1t1 -> n1t1f2 [color="blue"];
+
+n1t2 -> n1t2t [color="blue"];
+n1t2 -> n1t2f1 [color="blue"];
+n1t2 -> n1t2f2 [color="blue"];
+
+n2t1 -> n2t1t [color="blue"];
+n2t1 -> n2t1f1 [color="blue"];
+n2t1 -> n2t1f2 [color="blue"];
+
+n2t2 -> n2t2t [color="blue"];
+n2t2 -> n2t2f1 [color="blue"];
+n2t2 -> n2t2f2 [color="blue"];
+
+}
 input_data_structure_dot
 </details>
