@@ -1,9 +1,11 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Spyder Editor
 
 This is a temporary script file.
 """
+from __future__ import print_function
 
 import matplotlib.pyplot as plt
 import pickle
@@ -156,7 +158,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         nav_toolbar_home = NavigationToolbar.home
         
         def new_home(self, *args, **kwargs):
-            print 'new home'
+            print ('new home')
             nav_toolbar_home(self, *args, **kwargs)
 
         NavigationToolbar.home = new_home

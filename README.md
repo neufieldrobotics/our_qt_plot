@@ -1,6 +1,30 @@
 # our_qt_plot
 A plotting tool with GUI for rosbags converted into pandas dataframes
 
+## Pre-requisites
+- pyqt
+- pandas
+- matplotlib
+- numpy
+- psutil
+
+### Conda environment
+```
+conda create -n our_qt_plot_env python=2.7 pyqt pandas matplotlib numpy psutil
+conda activate out_qt_plot_env
+```
+
+### Note:
+.pkl files created with different versions are not compatible.  When using rosbag pkl files, they will typically be generated with a python 2.7 based pandas / pkl version and thus not be compatible with python 3 based pandas / pkl.
+The above conda environment should work with ros based files.
+
+## Using
+Open the program using chosen config file.  eg.
+```
+./our_qt_plot.py -c config/oqtplot_config_seabed.yaml 
+```
+The click on `load datafile` and open the `.pkl` file.
+
 ## Input data structure
 ![Alt text](https://g.gravizo.com/source/svg/input_ds?https%3A%2F%2Fraw.githubusercontent.com%2Fneufieldrobotics%2Four_qt_plot%2Fmaster%2FREADME.md)
 <details> 
@@ -45,3 +69,4 @@ n2t2 -> n2t2f2 [color="blue"];
 }
 input_ds
 </details>
+
