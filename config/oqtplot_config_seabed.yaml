@@ -6,64 +6,109 @@
 #   - field2
 time_series_buttons:
   heading:
-  - topic: heading
-    fields: null
-  - topic: target_heading
-    fields: null
+    y_axis_label: 'Heading (rads)'
+    plot_list:
+      - topic: heading
+        fields: 
+        - data
+      - topic: target_heading
+        fields: 
+        - data
 
   pitch:
-  - topic: pitch
-    fields: null
-  - topic: target_pitch
-    fields: null
-
-  depth:
-  - topic: depth
-    fields: null
-  - topic: target_depth
-    fields: null
+    y_axis_label: 'Pitch (rads)'
+    plot_list:
+      - topic: pitch
+        fields: null
+      - topic: target_pitch
+        fields: null
 
   roll:
-  - topic: roll
-    fields: null
+    y_axis_label: 'Roll (rads)'
+    plot_list:
+      - topic: roll
+        fields: null
+
+  depth:
+    y_axis_label: 'Depth (m)'
+    plot_list:
+      - topic: depth
+        fields: null
+      - topic: target_depth
+        fields: null
 
   rudder_cmd:
-  - topic: rudder_cmd
-    fields: null
+    y_axis_label: 'Rudder cmd (fract units)'
+    plot_list:
+      - topic: rudder_cmd
+        fields: null
 
   elevator_cmd:
-  - topic: elevator_cmd
-    fields: null
+    y_axis_label: 'Elev cmd (fract units)'
+    plot_list:
+      - topic: elevator_cmd
+        fields: null
 
   dvl_odom:
-  - topic: dvl_odom
-    fields:
-    - velocity_x
-    - velocity_y
-    - velocity_z
+    y_axis_label: 'Velocity (m/s)'
+    plot_list:
+      - topic: dvl_odom
+        fields:
+        - velocity_x
+        - velocity_y
+        - velocity_z
 
   'imu_roll':
-  - topic: imu_data
-  # atan2(2(wx + yz), 1 - 2(x^2 + y^2))
-    pre_process_string: 
-    - 'phi = arctan2(2*(orientation_quat_y * orientation_quat_z + orientation_quat_x * orientation_quat_w), 1 - 2*(orientation_quat_x**2 + orientation_quat_y**2)) - @pi'
-    - 'roll = 180/@pi * @wrapToPi(phi)'
-    fields: 
-    - roll
+    y_axis_label: 'Roll (deg)'
+    plot_list:
+      - topic: imu_data
+      # atan2(2(wx + yz), 1 - 2(x^2 + y^2))
+        pre_process_string: 
+        - 'phi = arctan2(2*(orientation_quat_y * orientation_quat_z + orientation_quat_x * orientation_quat_w), 1 - 2*(orientation_quat_x**2 + orientation_quat_y**2)) - @pi'
+        - 'roll = 180/@pi * @wrapToPi(phi)'
+        fields: 
+        - roll
 
   'imu_pitch':
-  - topic: imu_data
-  # asin(2(wy - zx))
-    pre_process_string: 'pitch = 180 / @pi * arcsin(2*(orientation_quat_w * orientation_quat_y - orientation_quat_z * orientation_quat_x))'
-    fields: 
-    - pitch
+    y_axis_label: 'Pitch (deg)'
+    plot_list:
+      - topic: imu_data
+      # asin(2(wy - zx))
+        pre_process_string: 'pitch = 180 / @pi * arcsin(2*(orientation_quat_w * orientation_quat_y - orientation_quat_z * orientation_quat_x))'
+        fields: 
+        - pitch
 
   'imu_yaw':
-  - topic: imu_data
-  # atan2(2(wz + xy), 1 - 2(y^2 + z^2))
-    pre_process_string: 'yaw = 180 / @pi * arctan2(2*(orientation_quat_w * orientation_quat_z + orientation_quat_x * orientation_quat_y), 1 - 2*(orientation_quat_y**2 + orientation_quat_z**2))'
-    fields: 
-    - yaw
+    y_axis_label: 'Yaw (deg)'
+    plot_list:
+      - topic: imu_data
+      # atan2(2(wz + xy), 1 - 2(y^2 + z^2))
+        pre_process_string: 'yaw = 180 / @pi * arctan2(2*(orientation_quat_w * orientation_quat_z + orientation_quat_x * orientation_quat_y), 1 - 2*(orientation_quat_y**2 + orientation_quat_z**2))'
+        fields: 
+        - yaw
+
+  thruster_rpm:
+    y_axis_label: 'Thruster (rpm)'
+    plot_list:
+      - topic: thruster_data
+        fields: 
+        -  prop_rpm
+      - topic: thruster_cmd
+        fields: null
+
+  'thruster_volt':
+    y_axis_label: 'Voltage (V)'
+    plot_list:
+      - topic: thruster_data
+        fields:
+        - voltage
+
+  'thruster_current':
+    y_axis_label: 'Current (A)'
+    plot_list:
+      - topic: thruster_data
+        fields:
+        - current
 
 xy_plot_buttons:
   gps_utm_raw:

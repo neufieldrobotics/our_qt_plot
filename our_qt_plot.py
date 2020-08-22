@@ -45,7 +45,8 @@ def add_subplot2fig(fig):
         
         ax_new = fig.add_subplot(n+1, 1, 1, sharex=fig.axes[0])
         plt.setp(ax_new.get_xticklabels(), visible=False)
-        #fig.tight_layout() 
+        fig.tight_layout() 
+    fig.subplots_adjust(left=None, bottom=0.01, right=None, top=None, wspace=None, hspace=None)
         #fig.subplots_adjust(hspace=0) # Makes vertical gap between plots 0 
     return ax_new
 
@@ -73,12 +74,25 @@ def plot_per_dict(axes, full_data_dict, namespace, plot_dict):
         if fields is None:
             fields = sorted(list(df.columns))
         
+        field_labels = [fl if fl != 'data' else topic for fl in fields]    
+        
         if type(fields) is not list:
             raise TypeError("For Topic: {}, supplied value of fields: '{}' is not of type list ".format(topic, fields))
-            
-        df.plot(ax=axes,y=fields,grid=True,style='.',ms=3,
-                label=[f +'_'+namespace for f in fields])
-        axes.set_ylabel(topic)
+        
+        if namespace == 'robot':
+            df.plot(ax=axes,y=fields,grid=True,style='.',ms=3,
+                    label=field_labels)
+        else:
+            df.plot(ax=axes,y=fields,grid=True,style='.',ms=3,
+                    label=[f +'_'+namespace for f in field_labels])
+
+        # This makes sure the markers show up correctly
+        lines = axes.get_lines()
+        
+        axes.legend(lines, [l.get_label() for l in lines])
+
+        if axes.get_ylabel() == u'':
+            axes.set_ylabel(topic)
         return True
     
     else:
@@ -236,7 +250,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         tsplotButtonList = []
         
-        for time_series_buttons_dict_key, time_series_buttons_dict_value in self.time_series_buttons_dict.items():
+        for time_series_buttons_dict_key, time_series_buttons_dict_value in sorted(self.time_series_buttons_dict.iteritems()):
             buttonwidget = QPushButton(time_series_buttons_dict_key)
             #buttonwidget.clicked.connect(lambda: self._add_new_plot(time_series_buttons_dict_value))
             buttonwidget.clicked.connect(partial(self._add_new_plot, time_series_buttons_dict_value))
@@ -410,9 +424,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.data_file_loaded:
             start_time = time.time()
             axn = add_subplot2fig(self.main_figure)
+            y_label_text = plot_dict_list.get('y_axis_label')
+            if y_label_text is not None:
+                axn.set_ylabel(y_label_text)
+            
             for buttonChecked, namespace in zip(self.namespaceButtonChecked, self.namespaceList):
                 if buttonChecked:
-                    for plot_dict in plot_dict_list:                    
+                    for plot_dict in plot_dict_list['plot_list']:                    
                         success = plot_per_dict(axn, self.full_dict, namespace, plot_dict)
                         if not success:
                             self.statusBar().showMessage('Couldn\'t find topic {} in namespace {}'.format(plot_dict['topic'],namespace),3000)
